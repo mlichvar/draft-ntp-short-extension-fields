@@ -1,0 +1,296 @@
+<?xml version="1.0" encoding="US-ASCII"?>
+<!DOCTYPE rfc SYSTEM "rfc2629.dtd" [
+<!ENTITY RFC2119 SYSTEM "http://xml.resource.org/public/rfc/bibxml/reference.RFC.2119.xml">
+<!ENTITY RFC5905 SYSTEM "http://xml.resource.org/public/rfc/bibxml/reference.RFC.5905.xml">
+<!ENTITY RFC7822 SYSTEM "http://xml.resource.org/public/rfc/bibxml/reference.RFC.7822.xml">
+]>
+<?xml-stylesheet type='text/xsl' href='rfc2629.xslt' ?>
+<?rfc strict="yes"?>
+<?rfc toc="no"?>
+<?rfc tocdepth="3"?>
+<?rfc symrefs="yes"?>
+<?rfc sortrefs="yes"?>
+<?rfc compact="yes"?>
+<?rfc subcompact="no"?>
+
+<rfc category="std" docName="draft-mlichvar-ntp-short-extension-fields-00" updates="RFC7822" ipr="trust200902">
+  <front>
+    <title>NTPv4 Short Extension Fields</title>
+
+    <author fullname="Miroslav Lichvar" initials="M." surname="Lichvar">
+      <organization>Red Hat</organization>
+      <address>
+        <postal>
+          <street>Purkynova 115</street>
+          <city>Brno</city>
+          <region></region>
+          <code>612 00</code>
+          <country>Czech Republic</country>
+        </postal>
+        <email>mlichvar@redhat.com</email>
+      </address>
+    </author>
+
+    <date year="2018" month="September" day="26"/>
+
+    <area>General</area>
+
+    <workgroup>Internet Engineering Task Force</workgroup>
+
+    <keyword>NTP</keyword>
+
+    <abstract>
+      <t>This document specifies a new packet format for the Network
+        Time Protocol version 4 (NTPv4) which is compatible with RFC
+        7822, but allows NTPv4 packets to contain shorter extension
+        fields.</t>
+    </abstract>
+  </front>
+
+  <middle>
+    <section title="Introduction">
+      <t><xref target="RFC7822">RFC 7822</xref> specifies a minimum
+        length of extension fields in NTPv4 packets in order to
+        prevent ambiguities in their parsing. Without these rules, an
+        extension field in a valid NTPv4 packet could be parsed as a
+        Message Authentication Code (MAC), or a MAC could be parsed as
+        an extension field.</t>
+
+      <t>The minimum length of 28 octets forces extension fields that
+        do not contain enough data to reach the minimum length to
+        waste space. With multiple extension fields in a packet the
+        wasted space accumulates.</t>
+
+      <t>A different issue with extension fields in NTPv4 packets is
+        that servers/clients cannot pad a response/request to a
+        specific length, e.g. to make their length symmetric when they
+        contain different extension fields, or the sums of their
+        lengths are different, unless one of the extension fields
+        included in the request/response supports padding.</t>
+
+      <t>This document specifies a new NTPv4 format using three new
+        extension fields:</t>
+
+      <t><list style="numbers">
+          <t>An extension field which contains other extension
+            fields with no requirements on minimum length</t>
+          <t>An extension field which does not contain any information
+            and can always be used for padding</t>
+          <t>An extension field which contains MAC</t>
+      </list></t>
+
+      <t>Together, these extension fields allow NTPv4 packets to
+        contain short extension fields, minimize the wasted space, and
+        allow the packets to be padded to any length that meets the
+        requirements of RFC 7822.</t>
+
+      <t>Older NTP implementations which follow RFC 7822 will parse a packet in
+        the new format as a valid packet which contains a single unknown
+        extension field, skipping all extension fields and/or MAC, and can
+        respond as appropriate.</t>
+
+      <t>An implementation which supports the new format will parse all
+        extension fields and/or MAC contained in the packet.</t>
+
+      <section title="Requirements Language">
+        <t>The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+          "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+          document are to be interpreted as described in <xref
+            target="RFC2119">RFC 2119</xref>.</t>
+      </section>
+    </section>
+
+    <section title="New extension fields">
+      <section title="Packing Field">
+        <t>The Packing Field is an NTP extension field following <xref
+            target="RFC7822">RFC 7822</xref>, which contains one or
+          more other extension fields. The format of the extension
+          field is shown below.</t>
+
+        <figure align="center" anchor="packing-field-format"
+            title="Format of Packing Field">
+          <artwork align="left"><![CDATA[
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|          Field Type           |            Length             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|       Subfield 1 Type         |        Subfield 1 Length      |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+.                                                               .
+.                       Subfield 1 Data                         .
+.                                                               .
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+.                                                               .
+.                                                               .
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|       Subfield N Type         |        Subfield N Length      |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+.                                                               .
+.                       Subfield N Data                         .
+.                                                               .
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+          ]]></artwork>
+        </figure>
+
+        <t>The extension field has the following fields:</t>
+
+        <t><list hangIndent="8" style="hanging">
+            <t hangText="Field Type"><vspace/>
+              The type which identifies the Packing Field. TBD</t>
+
+            <t hangText="Length"><vspace/>
+              The length of the extension field, which is at least 28
+              octets.</t>
+
+            <t hangText="Subfield 1..N Type"><vspace/>
+              The types of the contained extension fields.</t>
+
+            <t hangText="Subfield 1..N Length"><vspace/>
+              The lengths of the contained extension field, which are
+              divisible by 4 and can be smaller than 28.</t>
+
+            <t hangText="Subfield 1..N Data"><vspace/>
+              Data specific to the included extension fields.</t>
+        </list></t>
+      </section>
+
+      <section title="Padding Field">
+        <t>The Padding Field is an NTP extension field which does not
+          contain any useful data. It does not follow the requirements
+          from <xref target="RFC7822">RFC 7822</xref> and it MUST be
+          contained in the Packing Field.</t>
+
+        <figure align="center" anchor="padding-field-format"
+            title="Format of Padding Field">
+          <artwork align="left"><![CDATA[
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|          Field Type           |            Length             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+.                                                               .
+.                            Padding                            .
+.                                                               .
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+          ]]></artwork>
+        </figure>
+
+        <t>The extension field has the following fields:</t>
+
+        <t><list hangIndent="8" style="hanging">
+            <t hangText="Field Type"><vspace/>
+              The type which identifies the Padding Field. TBD</t>
+
+            <t hangText="Length"><vspace/>
+              The length of the extension field.</t>
+
+            <t hangText="Padding"><vspace/>
+              Octets filling the space of the extension field with any
+              value.</t>
+        </list></t>
+      </section>
+
+      <section title="MAC Field">
+        <t>The MAC Field is an NTP extension field which contains a
+          MAC as specified in <xref target="RFC5905">RFC 5905</xref>.
+          It does not follow the requirements from <xref
+            target="RFC7822">RFC 7822</xref> and it MUST be contained
+          in the Packing Field.</t>
+
+        <figure align="center" anchor="mac-field-format"
+            title="Format of MAC Field">
+          <artwork align="left"><![CDATA[
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|          Field Type           |            Length             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                        Key Identifier                         |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+.                                                               .
+.                        Message Digest                         .
+.                                                               .
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+          ]]></artwork>
+        </figure>
+
+        <t>The extension field has the following fields:</t>
+
+        <t><list hangIndent="8" style="hanging">
+            <t hangText="Field Type"><vspace/>
+              The type which identifies the MAC Field. TBD</t>
+
+            <t hangText="Length"><vspace/>
+              The length of the extension field.</t>
+
+            <t hangText="Key Identifier"><vspace/>
+              The ID of the key which is used for calculating the
+              digest.</t>
+
+            <t hangText="Message Digest"><vspace/>
+              Digest calculated over all UDP data before the Key
+              Identifier, including the length of the MAC Field and
+              Packing field.</t>
+        </list></t>
+      </section>
+    </section>
+
+    <section title="New NTPv4 format">
+      <t>An NTPv4 packet in the new format consists of:</t>
+
+      <t><list style="numbers">
+          <t>NTPv4 header per <xref target="RFC5905">RFC 5905</xref>(48 octets)</t>
+          <t>Field Type of the Packing Field (2 octets)</t>
+          <t>Length of all data following the NTP header (2 octets)</t>
+          <t>Extension fields with no restrictions on their minimum
+            length, optionally including the Padding and/or MAC Fields
+            (at least 24 octets)</t>
+      </list></t>
+
+      <t>The packet MUST have exactly one Packing Field and it MUST
+        contain all other extension fields. The packet MUST NOT have a
+        MAC outside the Packing Field. If there is not enough data to
+        reach the minimum length of 28 octets, the Packing Field MUST
+        include at least one Padding Field to increase the length of
+        the Packing Field.</t>
+    </section>
+
+    <section title="Parsing of NTPv4 packets">
+      <t>An implementation SHOULD check if the following applies to
+        the UDP data before parsing it as an NTPv4 packet in the new
+        format:</t>
+
+      <t><list style="numbers">
+          <t>NTP version (in the first octet) is 4.</t>
+          <t>NTP mode (in the first octet) is 1, 2, 3, 4, or 5.</t>
+          <t>Length is at least 76 octets.</t>
+          <t>49th and 50th octets contain the type of the Packing
+            Field.</t>
+          <t>51st and 52nd octets contain a value that is equal to
+            the length of the UDP data minus 48.</t>
+      </list></t>
+    </section>
+
+    <!--
+    <section anchor="Acknowledgements" title="Acknowledgements">
+      <t>The author would like to thank ...</t>
+    </section>
+    -->
+
+    <section anchor="IANA" title="IANA Considerations">
+      <t>IANA is requested to allocate Extension Field Types for the
+        Packing, Padding, and MAC Extension Fields.</t>
+    </section>
+  </middle>
+
+  <back>
+    <references title="Normative References">
+      &RFC2119;
+
+      &RFC5905;
+
+      &RFC7822;
+    </references>
+  </back>
+</rfc>
