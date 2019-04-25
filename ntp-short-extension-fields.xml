@@ -13,7 +13,7 @@
 <?rfc compact="yes"?>
 <?rfc subcompact="no"?>
 
-<rfc category="std" docName="draft-mlichvar-ntp-short-extension-fields-00" updates="RFC7822" ipr="trust200902">
+<rfc category="std" docName="draft-mlichvar-ntp-short-extension-fields-01" updates="RFC7822" ipr="trust200902">
   <front>
     <title>NTPv4 Short Extension Fields</title>
 
@@ -31,7 +31,7 @@
       </address>
     </author>
 
-    <date year="2018" month="September" day="26"/>
+    <date year="2019" month="April" day="25"/>
 
     <area>General</area>
 
